@@ -41,9 +41,6 @@ public class RsmClient {
 
 		final Node response = responseQuery.get();
 
-		final Link commands = session.node(conf.getCommandsNode(),
-				conf.getCommandsNodeSecret());
-
 		// preparing command
 		final ComponentCommandData command = new ComponentCommandData();
 		command.setId(forId);
@@ -90,7 +87,8 @@ public class RsmClient {
 		});
 
 		// add to commands node
-		commands.append(command);
+		session.post(command, conf.getCommandsNode(),
+				conf.getCommandsNodeSecret());
 
 		// synchronizing all changes with server
 		session.commit().get();
