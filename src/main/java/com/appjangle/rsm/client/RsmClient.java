@@ -24,12 +24,12 @@ public class RsmClient {
 	 * 
 	 * @param operation
 	 * @param forId
-	 * @param callback
 	 * @param conf
+	 * @param callback
 	 */
 	public static void performCommand(final ComponentOperation operation,
-			final String forId, final OperationCallback callback,
-			final ClientConfiguration conf) {
+			final String forId, final ClientConfiguration conf,
+			final OperationCallback callback) {
 		assert forId != null;
 		assert operation != null;
 
