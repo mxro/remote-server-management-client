@@ -3,7 +3,7 @@ package com.appjangle.rsm.client.commands.v01;
 import com.appjangle.rsm.client.commands.ComponentCommandResponse;
 
 /**
- * In case a failure occured during performing an operation.
+ * In case a failure occurred during performing an operation.
  * 
  * @author mroh004
  * 
