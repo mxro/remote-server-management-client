@@ -7,9 +7,8 @@ import io.nextweb.NodeList;
 import io.nextweb.Query;
 import io.nextweb.Session;
 import io.nextweb.common.Interval;
-import io.nextweb.common.Monitor;
+import io.nextweb.common.MonitorContext;
 import io.nextweb.fn.Closure;
-import io.nextweb.fn.Result;
 import io.nextweb.jre.Nextweb;
 
 import com.appjangle.rsm.client.commands.ComponentOperation;
@@ -54,40 +53,42 @@ public class RsmClient {
 						conf.getResponseNodeSecret()));
 
 		// monitor node for response from server
-		final Result<Monitor> monitor = response.monitor(Interval.EXTRA_FAST,
-				new Closure<Node>() {
+		response.monitor(Interval.EXTRA_FAST, new Closure<MonitorContext>() {
+
+			@Override
+			public void apply(final MonitorContext ctx) {
+
+				final ListQuery allQuery = ctx.node().selectAll();
+
+				allQuery.get(new Closure<NodeList>() {
 
 					@Override
-					public void apply(final Node o) {
-						final ListQuery allQuery = o.selectAll();
+					public void apply(final NodeList o) {
+						if (o.values().contains(new SuccessResponse())) {
+							callback.onSuccess();
+							responsesLink.remove(response);
+							ctx.monitor().stop();
+							session.commit();
+							return;
+						}
 
-						allQuery.get(new Closure<NodeList>() {
-
-							@Override
-							public void apply(final NodeList o) {
-								if (o.values().contains(new SuccessResponse())) {
-									callback.onSuccess();
-									responsesLink.remove(response);
-									session.commit();
-									return;
-								}
-
-								for (final Object obj : o.values()) {
-									if (obj instanceof FailureResponse) {
-										final FailureResponse failureResponse = (FailureResponse) obj;
-										callback.onFailure(failureResponse
-												.getException());
-										responsesLink.remove(response);
-										session.commit();
-										return;
-									}
-
-								}
+						for (final Object obj : o.values()) {
+							if (obj instanceof FailureResponse) {
+								final FailureResponse failureResponse = (FailureResponse) obj;
+								callback.onFailure(failureResponse
+										.getException());
+								responsesLink.remove(response);
+								ctx.monitor().stop();
+								session.commit();
+								return;
 							}
-						});
 
+						}
 					}
 				});
+
+			}
+		});
 
 		// add to commands node
 		session.post(command, conf.getCommandsNode(),
