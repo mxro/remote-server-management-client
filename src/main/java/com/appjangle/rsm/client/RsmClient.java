@@ -38,6 +38,9 @@ public class RsmClient {
 		// prepare response node
 		final Link responsesLink = session.node(conf.getResponsesNode(),
 				conf.getResponseNodeSecret());
+
+		responsesLink.get();
+
 		final Query responseQuery = responsesLink.appendSafe("resp");
 
 		final Node response = responseQuery.get();
