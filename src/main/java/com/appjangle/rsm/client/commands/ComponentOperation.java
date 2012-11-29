@@ -2,7 +2,8 @@ package com.appjangle.rsm.client.commands;
 
 import java.io.Serializable;
 
-import one.utils.server.ServerComponent;
+import de.mxro.server.ServerComponent;
+
 
 public interface ComponentOperation extends Serializable {
 

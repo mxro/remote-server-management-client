@@ -65,21 +65,24 @@ public class RsmClient {
 					@Override
 					public void apply(final NodeList o) {
 						if (o.values().contains(new SuccessResponse())) {
-							callback.onSuccess();
+
 							responsesLink.remove(response);
 							ctx.monitor().stop();
 							session.commit();
+							callback.onSuccess();
 							return;
 						}
 
 						for (final Object obj : o.values()) {
 							if (obj instanceof FailureResponse) {
-								final FailureResponse failureResponse = (FailureResponse) obj;
-								callback.onFailure(failureResponse
-										.getException());
+
 								responsesLink.remove(response);
 								ctx.monitor().stop();
 								session.commit();
+
+								final FailureResponse failureResponse = (FailureResponse) obj;
+								callback.onFailure(failureResponse
+										.getException());
 								return;
 							}
 
