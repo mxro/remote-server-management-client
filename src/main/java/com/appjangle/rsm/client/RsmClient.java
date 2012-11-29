@@ -1,7 +1,9 @@
 package com.appjangle.rsm.client;
 
 import io.nextweb.Link;
+import io.nextweb.ListQuery;
 import io.nextweb.Node;
+import io.nextweb.NodeList;
 import io.nextweb.Query;
 import io.nextweb.Session;
 import io.nextweb.common.Interval;
@@ -11,9 +13,19 @@ import io.nextweb.jre.Nextweb;
 import com.appjangle.rsm.client.commands.ComponentOperation;
 import com.appjangle.rsm.client.commands.OperationCallback;
 import com.appjangle.rsm.client.commands.v01.ComponentCommandData;
+import com.appjangle.rsm.client.commands.v01.FailureResponse;
+import com.appjangle.rsm.client.commands.v01.SuccessResponse;
 
 public class RsmClient {
 
+	/**
+	 * Run an operation on the server for a specific component.
+	 * 
+	 * @param operation
+	 * @param forId
+	 * @param callback
+	 * @param conf
+	 */
 	public static void performCommand(final ComponentOperation operation,
 			final String forId, final OperationCallback callback,
 			final ClientConfiguration conf) {
@@ -42,17 +54,46 @@ public class RsmClient {
 				.createPort(session, response.uri(),
 						conf.getResponseNodeSecret()));
 
-		// add to commands node
-		commands.append(command);
-		session.commit().get();
-
+		// monitor node for response from server
 		response.monitor(Interval.EXTRA_FAST, new Closure<Node>() {
 
 			@Override
 			public void apply(final Node o) {
+				final ListQuery allQuery = o.selectAll();
+
+				allQuery.get(new Closure<NodeList>() {
+
+					@Override
+					public void apply(final NodeList o) {
+						if (o.values().contains(new SuccessResponse())) {
+							callback.onSuccess();
+							responsesLink.remove(response);
+							session.commit();
+							return;
+						}
+
+						for (final Object obj : o.values()) {
+							if (obj instanceof FailureResponse) {
+								final FailureResponse failureResponse = (FailureResponse) obj;
+								callback.onFailure(failureResponse
+										.getException());
+								responsesLink.remove(response);
+								session.commit();
+								return;
+							}
+
+						}
+					}
+				});
 
 			}
 		});
+
+		// add to commands node
+		commands.append(command);
+
+		// synchronizing all changes with server
+		session.commit().get();
 
 	}
 }

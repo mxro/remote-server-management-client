@@ -10,10 +10,20 @@ import com.appjangle.rsm.client.commands.ComponentCommandResponse;
  */
 public class SuccessResponse implements ComponentCommandResponse {
 
-	private static final long serialVersionUID = 1L;
+	private static final long serialVersionUID = -5119242018368471614L;
 
 	public SuccessResponse() {
 		super();
+	}
+
+	@Override
+	public int hashCode() {
+		return getClass().hashCode();
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+		return obj instanceof SuccessResponse;
 	}
 
 }
