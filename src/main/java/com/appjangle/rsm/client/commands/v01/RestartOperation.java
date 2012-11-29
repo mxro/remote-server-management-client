@@ -1,11 +1,10 @@
 package com.appjangle.rsm.client.commands.v01;
 
-import one.utils.server.ShutdownCallback;
-
 import com.appjangle.rsm.client.commands.ComponentOperation;
 import com.appjangle.rsm.client.commands.OperationCallback;
 
 import de.mxro.server.ServerComponent;
+import de.mxro.server.ShutdownCallback;
 import de.mxro.server.StartCallback;
 
 public class RestartOperation implements ComponentOperation {
