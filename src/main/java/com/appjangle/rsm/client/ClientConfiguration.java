@@ -15,6 +15,25 @@ public interface ClientConfiguration {
 	 */
 	public String getCommandsNode();
 
+	/**
+	 * Secret for the node to which commands will be posted.
+	 * 
+	 * @return
+	 */
 	public String getCommandsNodeSecret();
+
+	/**
+	 * Node to which responses from the server shall be posted.
+	 * 
+	 * @return
+	 */
+	public String getResponsesNode();
+
+	/**
+	 * Secret for the node to which responses from the server shall be posted.
+	 * 
+	 * @return
+	 */
+	public String getResponseNodeSecret();
 
 }
