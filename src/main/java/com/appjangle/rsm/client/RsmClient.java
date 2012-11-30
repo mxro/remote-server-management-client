@@ -9,7 +9,12 @@ import io.nextweb.Session;
 import io.nextweb.common.Interval;
 import io.nextweb.common.MonitorContext;
 import io.nextweb.fn.Closure;
+import io.nextweb.fn.Success;
 import io.nextweb.jre.Nextweb;
+import io.nextweb.operations.exceptions.ImpossibleListener;
+import io.nextweb.operations.exceptions.ImpossibleResult;
+
+import java.util.Random;
 
 import com.appjangle.rsm.client.commands.ComponentOperation;
 import com.appjangle.rsm.client.commands.OperationCallback;
@@ -41,10 +46,43 @@ public class RsmClient {
 
 		responsesLink.get();
 
-		final Query responseQuery = responsesLink.appendSafe("resp");
+		createResponsesNode(operation, forId, conf, callback, session,
+				responsesLink);
 
-		final Node response = responseQuery.get();
+	}
 
+	private static void createResponsesNode(final ComponentOperation operation,
+			final String forId, final ClientConfiguration conf,
+			final OperationCallback callback, final Session session,
+			final Link responsesLink) {
+		final Query responseQuery = responsesLink.appendSafe("resp"
+				+ new Random().nextLong());
+
+		responseQuery.catchImpossible(new ImpossibleListener() {
+
+			@Override
+			public void onImpossible(final ImpossibleResult ir) {
+				// just try again
+				createResponsesNode(operation, forId, conf, callback, session,
+						responsesLink);
+			}
+		});
+
+		responseQuery.get(new Closure<Node>() {
+
+			@Override
+			public void apply(final Node response) {
+				submitCommand(operation, forId, conf, callback, session,
+						responsesLink, response);
+			}
+		});
+
+	}
+
+	private static void submitCommand(final ComponentOperation operation,
+			final String forId, final ClientConfiguration conf,
+			final OperationCallback callback, final Session session,
+			final Link responsesLink, final Node response) {
 		// preparing command
 		final ComponentCommandData command = new ComponentCommandData();
 		command.setId(forId);
@@ -67,29 +105,62 @@ public class RsmClient {
 
 					@Override
 					public void apply(final NodeList o) {
-						if (o.values().contains(new SuccessResponse())) {
 
-							responsesLink.remove(response);
-							ctx.monitor().stop();
-							session.commit();
-							callback.onSuccess();
-							return;
-						}
+						for (final Node n : o.nodes()) {
 
-						for (final Object obj : o.values()) {
-							if (obj instanceof FailureResponse) {
+							final Object obj = n.value();
+							if (obj instanceof SuccessResponse) {
 
+								response.remove(n);
 								responsesLink.remove(response);
-								ctx.monitor().stop();
-								session.commit();
+								ctx.monitor().stop()
+										.get(new Closure<Success>() {
 
-								final FailureResponse failureResponse = (FailureResponse) obj;
-								callback.onFailure(failureResponse
-										.getException());
+											@Override
+											public void apply(final Success o) {
+												session.commit().get(
+														new Closure<Success>() {
+
+															@Override
+															public void apply(
+																	final Success o) {
+																callback.onSuccess();
+															}
+														});
+
+											}
+										});
+
+								return;
+							}
+
+							if (obj instanceof FailureResponse) {
+								response.remove(n);
+								responsesLink.remove(response);
+								ctx.monitor().stop()
+										.get(new Closure<Success>() {
+
+											@Override
+											public void apply(final Success o) {
+												session.commit().get(
+														new Closure<Success>() {
+
+															@Override
+															public void apply(
+																	final Success o) {
+																final FailureResponse failureResponse = (FailureResponse) obj;
+																callback.onFailure(failureResponse
+																		.getException());
+															}
+														});
+											}
+										});
+
 								return;
 							}
 
 						}
+
 					}
 				});
 
@@ -102,6 +173,5 @@ public class RsmClient {
 
 		// synchronizing all changes with server
 		session.commit().get();
-
 	}
 }
