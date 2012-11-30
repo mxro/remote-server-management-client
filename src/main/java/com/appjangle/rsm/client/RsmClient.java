@@ -1,6 +1,7 @@
 package com.appjangle.rsm.client;
 
 import io.nextweb.Link;
+import io.nextweb.LinkList;
 import io.nextweb.ListQuery;
 import io.nextweb.Node;
 import io.nextweb.NodeList;
@@ -44,27 +45,33 @@ public class RsmClient {
 		final Link responsesLink = session.node(conf.getResponsesNode(),
 				conf.getResponseNodeSecret());
 
-		responsesLink.get();
+		responsesLink.selectAllLinks().get(new Closure<LinkList>() {
 
-		createResponsesNode(operation, forId, conf, callback, session,
-				responsesLink);
+			@Override
+			public void apply(final LinkList ll) {
+				createResponsesNode(operation, forId, conf, callback, session,
+						responsesLink, ll);
+			}
+		});
 
 	}
 
 	private static void createResponsesNode(final ComponentOperation operation,
 			final String forId, final ClientConfiguration conf,
 			final OperationCallback callback, final Session session,
-			final Link responsesLink) {
-		final Query responseQuery = responsesLink.appendSafe("resp"
-				+ new Random().nextLong());
+			final Link responsesLink, final LinkList ll) {
+		final Query responseQuery = responsesLink.appendSafe("r"
+				+ (new Random().nextInt()));
 
 		responseQuery.catchImpossible(new ImpossibleListener() {
 
 			@Override
 			public void onImpossible(final ImpossibleResult ir) {
+
 				// just try again
 				createResponsesNode(operation, forId, conf, callback, session,
-						responsesLink);
+						responsesLink, ll);
+
 			}
 		});
 
@@ -72,6 +79,7 @@ public class RsmClient {
 
 			@Override
 			public void apply(final Node response) {
+
 				submitCommand(operation, forId, conf, callback, session,
 						responsesLink, response);
 			}
@@ -111,8 +119,9 @@ public class RsmClient {
 							final Object obj = n.value();
 							if (obj instanceof SuccessResponse) {
 
-								response.remove(n);
-								responsesLink.remove(response);
+								response.removeSafe(n);
+								responsesLink.removeSafe(response);
+
 								ctx.monitor().stop()
 										.get(new Closure<Success>() {
 
@@ -167,11 +176,17 @@ public class RsmClient {
 			}
 		});
 
-		// add to commands node
-		session.post(command, conf.getCommandsNode(),
-				conf.getCommandsNodeSecret());
-
 		// synchronizing all changes with server
-		session.commit().get();
+		session.commit().get(new Closure<Success>() {
+
+			@Override
+			public void apply(final Success o) {
+
+				// add to commands node
+				session.post(command, conf.getCommandsNode(),
+						conf.getCommandsNodeSecret());
+			}
+		});
+
 	}
 }
