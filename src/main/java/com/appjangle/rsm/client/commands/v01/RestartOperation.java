@@ -35,7 +35,19 @@ public class RestartOperation implements ComponentOperation {
 
 			@Override
 			public void onFailure(final Throwable t) {
-				callback.onFailure(t);
+				// if component cannot be shut down, try to start anyway.
+				component.start(new StartCallback() {
+
+					@Override
+					public void onStarted() {
+						callback.onSuccess();
+					}
+
+					@Override
+					public void onFailure(final Throwable t) {
+						callback.onFailure(t);
+					}
+				});
 			}
 		});
 
