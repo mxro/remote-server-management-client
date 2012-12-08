@@ -185,6 +185,14 @@ public class RsmClient {
 				// add to commands node
 				session.post(command, conf.getCommandsNode(),
 						conf.getCommandsNodeSecret());
+
+				session.commit().get(new Closure<Success>() {
+
+					@Override
+					public void apply(final Success o) {
+
+					}
+				});
 			}
 		});
 
