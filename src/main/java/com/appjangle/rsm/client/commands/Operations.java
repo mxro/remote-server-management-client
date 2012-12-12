@@ -1,9 +1,11 @@
 package com.appjangle.rsm.client.commands;
 
-import com.appjangle.rsm.client.commands.v01.RestartOperation;
+import com.appjangle.rsm.client.commands.v01.AppendOperation;
 import com.appjangle.rsm.client.commands.v01.ReplaceOperation;
+import com.appjangle.rsm.client.commands.v01.RestartOperation;
 
 import de.mxro.server.ComponentConfiguration;
+import de.mxro.server.ServerComponent;
 
 public class Operations {
 
@@ -26,6 +28,24 @@ public class Operations {
 	public static ComponentOperation update(final String componentId,
 			final ComponentConfiguration conf) {
 		return new ReplaceOperation(componentId, conf);
+	}
+
+	/**
+	 * Appends a new {@link ServerComponent} to an already running server.
+	 * 
+	 */
+	public static AppendOperation append(final ComponentConfiguration conf) {
+		return new AppendOperation(conf, -1);
+	}
+
+	/**
+	 * Appends a new {@link ServerComponent} to an already running server at the
+	 * specified index.
+	 * 
+	 */
+	public static AppendOperation append(final ComponentConfiguration conf,
+			final int index) {
+		return new AppendOperation(conf, index);
 	}
 
 }
