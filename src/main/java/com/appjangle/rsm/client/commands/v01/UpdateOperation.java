@@ -4,26 +4,36 @@ import com.appjangle.rsm.client.commands.ComponentOperation;
 import com.appjangle.rsm.client.commands.OperationCallback;
 
 import de.mxro.server.ComponentConfiguration;
-import de.mxro.server.ServerComponent;
+import de.mxro.server.ComponentContext;
 import de.mxro.server.ShutdownCallback;
 import de.mxro.server.StartCallback;
+import de.mxro.server.manager.ComponentManager;
 
 public class UpdateOperation implements ComponentOperation {
 
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * The new configuration to be used.
+	 */
 	public ComponentConfiguration conf;
 
-	@Override
-	public void perform(final ServerComponent component,
-			final OperationCallback callback) {
+	/**
+	 * Which component is to be updaded?
+	 */
+	public String componentId;
 
-		component.stop(new ShutdownCallback() {
+	@Override
+	public void perform(final ComponentManager manager,
+			final ComponentContext context, final OperationCallback callback) {
+		manager.stopComponent(componentId, new ShutdownCallback() {
 
 			@Override
 			public void onShutdownComplete() {
 
-				component.injectConfiguration(conf);
+				final int idx = manager.removeComponent(componentId);
+
+				manager.addComponent(conf);
 				component.start(new StartCallback() {
 
 					@Override
@@ -56,11 +66,12 @@ public class UpdateOperation implements ComponentOperation {
 				});
 			}
 		});
-
 	}
 
-	public UpdateOperation(final ComponentConfiguration conf) {
+	public UpdateOperation(final String componentId,
+			final ComponentConfiguration conf) {
 		super();
+		this.componentId = componentId;
 		this.conf = conf;
 	}
 
