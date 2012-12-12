@@ -1,6 +1,6 @@
 package com.appjangle.rsm.client.commands;
 
-import com.appjangle.rsm.client.commands.v01.ReplaceOperation;
+import com.appjangle.rsm.client.commands.v01.UpdateOperation;
 import com.appjangle.rsm.client.commands.v01.RestartOperation;
 
 import de.mxro.server.ComponentConfiguration;
@@ -23,8 +23,8 @@ public class Operations {
 	 * @param conf
 	 * @return
 	 */
-	public static ComponentOperation replace(final ComponentConfiguration conf) {
-		return new ReplaceOperation(conf);
+	public static ComponentOperation update(final ComponentConfiguration conf) {
+		return new UpdateOperation(conf);
 	}
 
 }

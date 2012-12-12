@@ -8,7 +8,7 @@ import de.mxro.server.ServerComponent;
 import de.mxro.server.ShutdownCallback;
 import de.mxro.server.StartCallback;
 
-public class ReplaceOperation implements ComponentOperation {
+public class UpdateOperation implements ComponentOperation {
 
 	private static final long serialVersionUID = 1L;
 
@@ -59,7 +59,7 @@ public class ReplaceOperation implements ComponentOperation {
 
 	}
 
-	public ReplaceOperation(final ComponentConfiguration conf) {
+	public UpdateOperation(final ComponentConfiguration conf) {
 		super();
 		this.conf = conf;
 	}
@@ -68,7 +68,7 @@ public class ReplaceOperation implements ComponentOperation {
 	 * for deser
 	 */
 	@Deprecated
-	public ReplaceOperation() {
+	public UpdateOperation() {
 		super();
 	}
 
