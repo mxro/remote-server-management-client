@@ -11,7 +11,6 @@ public interface ComponentOperation extends Serializable {
 	 * Perform an operation on a server.
 	 * 
 	 * @param manager
-	 * @param context
 	 * @param callback
 	 */
 	public void perform(ComponentManager manager, ComponentContext context,

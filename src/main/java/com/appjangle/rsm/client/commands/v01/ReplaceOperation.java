@@ -9,7 +9,7 @@ import de.mxro.server.ShutdownCallback;
 import de.mxro.server.StartCallback;
 import de.mxro.server.manager.ComponentManager;
 
-public class UpdateOperation implements ComponentOperation {
+public class ReplaceOperation implements ComponentOperation {
 
 	private static final long serialVersionUID = 1L;
 
@@ -32,9 +32,9 @@ public class UpdateOperation implements ComponentOperation {
 			public void onShutdownComplete() {
 
 				final int idx = manager.removeComponent(componentId);
+				manager.addComponent(idx, context, conf);
 
-				manager.addComponent(conf);
-				component.start(new StartCallback() {
+				manager.startComponent(conf.getId(), new StartCallback() {
 
 					@Override
 					public void onStarted() {
@@ -51,8 +51,11 @@ public class UpdateOperation implements ComponentOperation {
 			@Override
 			public void onFailure(final Throwable t) {
 				// if component cannot be shut down, try to start anyway.
-				component.injectConfiguration(conf);
-				component.start(new StartCallback() {
+				final int idx = manager.removeComponent(componentId);
+
+				manager.addComponent(idx, context, conf);
+
+				manager.startComponent(conf.getId(), new StartCallback() {
 
 					@Override
 					public void onStarted() {
@@ -68,7 +71,7 @@ public class UpdateOperation implements ComponentOperation {
 		});
 	}
 
-	public UpdateOperation(final String componentId,
+	public ReplaceOperation(final String componentId,
 			final ComponentConfiguration conf) {
 		super();
 		this.componentId = componentId;
@@ -79,7 +82,7 @@ public class UpdateOperation implements ComponentOperation {
 	 * for deser
 	 */
 	@Deprecated
-	public UpdateOperation() {
+	public ReplaceOperation() {
 		super();
 	}
 
