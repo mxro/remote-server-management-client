@@ -34,9 +34,8 @@ public class RsmClient {
 	 * @param callback
 	 */
 	public static void performCommand(final ComponentOperation operation,
-			final String forId, final ClientConfiguration conf,
-			final OperationCallback callback) {
-		assert forId != null;
+			final ClientConfiguration conf, final OperationCallback callback) {
+
 		assert operation != null;
 
 		final Session session = Nextweb.createSession();
@@ -49,7 +48,7 @@ public class RsmClient {
 
 			@Override
 			public void apply(final LinkList ll) {
-				createResponsesNode(operation, forId, conf, callback, session,
+				createResponsesNode(operation, conf, callback, session,
 						responsesLink, ll);
 			}
 		});
@@ -57,9 +56,8 @@ public class RsmClient {
 	}
 
 	private static void createResponsesNode(final ComponentOperation operation,
-			final String forId, final ClientConfiguration conf,
-			final OperationCallback callback, final Session session,
-			final Link responsesLink, final LinkList ll) {
+			final ClientConfiguration conf, final OperationCallback callback,
+			final Session session, final Link responsesLink, final LinkList ll) {
 		final Query responseQuery = responsesLink.appendSafe("r"
 				+ (new Random().nextInt()));
 
@@ -69,7 +67,7 @@ public class RsmClient {
 			public void onImpossible(final ImpossibleResult ir) {
 
 				// just try again
-				createResponsesNode(operation, forId, conf, callback, session,
+				createResponsesNode(operation, conf, callback, session,
 						responsesLink, ll);
 
 			}
@@ -80,7 +78,7 @@ public class RsmClient {
 			@Override
 			public void apply(final Node response) {
 
-				submitCommand(operation, forId, conf, callback, session,
+				submitCommand(operation, conf, callback, session,
 						responsesLink, response);
 			}
 		});
@@ -88,12 +86,11 @@ public class RsmClient {
 	}
 
 	private static void submitCommand(final ComponentOperation operation,
-			final String forId, final ClientConfiguration conf,
-			final OperationCallback callback, final Session session,
-			final Link responsesLink, final Node response) {
+			final ClientConfiguration conf, final OperationCallback callback,
+			final Session session, final Link responsesLink, final Node response) {
 		// preparing command
 		final ComponentCommandData command = new ComponentCommandData();
-		command.setId(forId);
+
 		command.setOperation(operation);
 		command.setPort(Nextweb
 				.getEngine()
