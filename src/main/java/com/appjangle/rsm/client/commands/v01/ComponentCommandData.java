@@ -9,7 +9,6 @@ public class ComponentCommandData implements ComponentCommand {
 
 	private static final long serialVersionUID = 1L;
 
-	public String id;
 	public ComponentOperation operation;
 
 	public Port port;
@@ -23,21 +22,8 @@ public class ComponentCommandData implements ComponentCommand {
 	}
 
 	@Override
-	public String forId() {
-		return id;
-	}
-
-	@Override
 	public ComponentOperation getOperation() {
 		return operation;
-	}
-
-	public String getId() {
-		return id;
-	}
-
-	public void setId(final String id) {
-		this.id = id;
 	}
 
 	public void setOperation(final ComponentOperation operation) {

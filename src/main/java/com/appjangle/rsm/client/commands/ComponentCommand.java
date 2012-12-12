@@ -7,13 +7,6 @@ import java.io.Serializable;
 public interface ComponentCommand extends Serializable {
 
 	/**
-	 * For which component Id of the cloud node
-	 * 
-	 * @return
-	 */
-	public String forId();
-
-	/**
 	 * Which operation is to be performed.
 	 * 
 	 * @return
