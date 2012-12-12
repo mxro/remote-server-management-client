@@ -1,6 +1,7 @@
 package com.appjangle.rsm.client.commands;
 
 import com.appjangle.rsm.client.commands.v01.AppendOperation;
+import com.appjangle.rsm.client.commands.v01.RemoveOperation;
 import com.appjangle.rsm.client.commands.v01.ReplaceOperation;
 import com.appjangle.rsm.client.commands.v01.RestartOperation;
 
@@ -40,12 +41,22 @@ public class Operations {
 
 	/**
 	 * Appends a new {@link ServerComponent} to an already running server at the
-	 * specified index.
+	 * specified index and starts the server.
 	 * 
 	 */
 	public static AppendOperation append(final ComponentConfiguration conf,
 			final int index) {
 		return new AppendOperation(conf, index);
+	}
+
+	/**
+	 * Stops a component and removes it from the server.
+	 * 
+	 * @param componentId
+	 * @return
+	 */
+	public static ComponentOperation remove(final String componentId) {
+		return new RemoveOperation(componentId);
 	}
 
 }
