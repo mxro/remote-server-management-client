@@ -91,6 +91,8 @@ public class RsmClient {
 		// preparing command
 		final ComponentCommandData command = new ComponentCommandData();
 
+		// System.out.println("submitting to: " + conf.getCommandsNode());
+
 		command.setOperation(operation);
 		command.setPort(Nextweb
 				.getEngine()
@@ -99,7 +101,7 @@ public class RsmClient {
 						conf.getResponseNodeSecret()));
 
 		// monitor node for response from server
-		response.monitor(Interval.EXTRA_FAST, new Closure<MonitorContext>() {
+		response.monitor(Interval.FAST, new Closure<MonitorContext>() {
 
 			@Override
 			public void apply(final MonitorContext ctx) {
