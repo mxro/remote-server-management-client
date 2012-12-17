@@ -126,12 +126,13 @@ public class RsmClient {
 
 											@Override
 											public void apply(final Success o) {
-												session.commit().get(
+												session.close().get(
 														new Closure<Success>() {
 
 															@Override
 															public void apply(
 																	final Success o) {
+
 																callback.onSuccess();
 															}
 														});
@@ -150,7 +151,7 @@ public class RsmClient {
 
 											@Override
 											public void apply(final Success o) {
-												session.commit().get(
+												session.close().get(
 														new Closure<Success>() {
 
 															@Override
