@@ -21,41 +21,55 @@ public class RestartOperation implements ComponentOperation {
 	public void perform(final ComponentManager manager,
 			final ComponentContext context, final OperationCallback callback) {
 
-		manager.stopComponent(componentId, new ShutdownCallback() {
+		try {
+			manager.stopComponent(componentId, new ShutdownCallback() {
 
-			@Override
-			public void onShutdownComplete() {
-				manager.startComponent(componentId, new StartCallback() {
+				@Override
+				public void onShutdownComplete() {
+					try {
+						manager.startComponent(componentId,
+								new StartCallback() {
 
-					@Override
-					public void onStarted() {
-						callback.onSuccess();
-					}
+									@Override
+									public void onStarted() {
+										callback.onSuccess();
+									}
 
-					@Override
-					public void onFailure(final Throwable t) {
+									@Override
+									public void onFailure(final Throwable t) {
+										callback.onFailure(t);
+									}
+								});
+					} catch (final Throwable t) {
 						callback.onFailure(t);
 					}
-				});
-			}
+				}
 
-			@Override
-			public void onFailure(final Throwable t) {
-				// if component cannot be shut down, try to start anyway.
-				manager.startComponent(componentId, new StartCallback() {
+				@Override
+				public void onFailure(final Throwable t) {
+					// if component cannot be shut down, try to start anyway.
+					try {
+						manager.startComponent(componentId,
+								new StartCallback() {
 
-					@Override
-					public void onStarted() {
-						callback.onSuccess();
+									@Override
+									public void onStarted() {
+										callback.onSuccess();
+									}
+
+									@Override
+									public void onFailure(final Throwable t) {
+										callback.onFailure(t);
+									}
+								});
+					} catch (final Throwable t2) {
+						callback.onFailure(t2);
 					}
-
-					@Override
-					public void onFailure(final Throwable t) {
-						callback.onFailure(t);
-					}
-				});
-			}
-		});
+				}
+			});
+		} catch (final Exception t) {
+			callback.onFailure(t);
+		}
 	}
 
 	public RestartOperation(final String componentId) {
