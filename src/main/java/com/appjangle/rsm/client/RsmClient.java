@@ -8,14 +8,17 @@ import io.nextweb.NodeList;
 import io.nextweb.Query;
 import io.nextweb.Session;
 import io.nextweb.common.Interval;
+import io.nextweb.common.Monitor;
 import io.nextweb.common.MonitorContext;
 import io.nextweb.fn.Closure;
+import io.nextweb.fn.Result;
 import io.nextweb.fn.Success;
 import io.nextweb.jre.Nextweb;
 import io.nextweb.operations.exceptions.ImpossibleListener;
 import io.nextweb.operations.exceptions.ImpossibleResult;
 
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.appjangle.rsm.client.commands.ComponentOperation;
 import com.appjangle.rsm.client.commands.OperationCallback;
@@ -100,81 +103,117 @@ public class RsmClient {
 				.createPort(session, response.uri(),
 						conf.getResponseNodeSecret()));
 
+		final AtomicBoolean responseReceived = new AtomicBoolean(false);
+
 		// monitor node for response from server
-		response.monitor(Interval.FAST, new Closure<MonitorContext>() {
-
-			@Override
-			public void apply(final MonitorContext ctx) {
-
-				final ListQuery allQuery = ctx.node().selectAll();
-
-				allQuery.get(new Closure<NodeList>() {
+		final Result<Monitor> monitor = response.monitor(Interval.FAST,
+				new Closure<MonitorContext>() {
 
 					@Override
-					public void apply(final NodeList o) {
+					public void apply(final MonitorContext ctx) {
 
-						for (final Node n : o.nodes()) {
+						final ListQuery allQuery = ctx.node().selectAll();
 
-							final Object obj = n.value();
-							if (obj instanceof SuccessResponse) {
+						allQuery.get(new Closure<NodeList>() {
 
-								response.removeSafe(n);
-								responsesLink.removeSafe(response);
+							@Override
+							public void apply(final NodeList o) {
 
-								ctx.monitor().stop()
-										.get(new Closure<Success>() {
+								for (final Node n : o.nodes()) {
 
-											@Override
-											public void apply(final Success o) {
-												session.close().get(
-														new Closure<Success>() {
+									final Object obj = n.value();
+									if (obj instanceof SuccessResponse) {
+										responseReceived.set(true);
 
-															@Override
-															public void apply(
-																	final Success o) {
+										response.removeSafe(n);
+										responsesLink.removeSafe(response);
 
-																callback.onSuccess();
-															}
-														});
+										ctx.monitor().stop()
+												.get(new Closure<Success>() {
 
-											}
-										});
+													@Override
+													public void apply(
+															final Success o) {
+														session.close()
+																.get(new Closure<Success>() {
 
-								return;
+																	@Override
+																	public void apply(
+																			final Success o) {
+
+																		callback.onSuccess();
+																	}
+																});
+
+													}
+												});
+
+										return;
+									}
+
+									if (obj instanceof FailureResponse) {
+										responseReceived.set(true);
+
+										response.remove(n);
+										responsesLink.remove(response);
+										ctx.monitor().stop()
+												.get(new Closure<Success>() {
+
+													@Override
+													public void apply(
+															final Success o) {
+														session.close()
+																.get(new Closure<Success>() {
+
+																	@Override
+																	public void apply(
+																			final Success o) {
+																		final FailureResponse failureResponse = (FailureResponse) obj;
+																		callback.onFailure(failureResponse
+																				.getException());
+																	}
+																});
+													}
+												});
+
+										return;
+									}
+
+								}
+
 							}
-
-							if (obj instanceof FailureResponse) {
-								response.remove(n);
-								responsesLink.remove(response);
-								ctx.monitor().stop()
-										.get(new Closure<Success>() {
-
-											@Override
-											public void apply(final Success o) {
-												session.close().get(
-														new Closure<Success>() {
-
-															@Override
-															public void apply(
-																	final Success o) {
-																final FailureResponse failureResponse = (FailureResponse) obj;
-																callback.onFailure(failureResponse
-																		.getException());
-															}
-														});
-											}
-										});
-
-								return;
-							}
-
-						}
+						});
 
 					}
 				});
 
+		new Thread() {
+
+			@Override
+			public void run() {
+
+				try {
+					Thread.sleep(1000 * 60 * 5);
+
+					if (responseReceived.get()) {
+						return;
+					}
+
+					responsesLink.removeSafe(response).get();
+
+					monitor.get().stop().get();
+					session.close().get();
+
+					callback.onFailure(new Exception(
+							"No response from server received in timeout (5 min)."));
+
+				} catch (final Exception e) {
+					callback.onFailure(e);
+				}
+
 			}
-		});
+
+		}.start();
 
 		// synchronizing all changes with server
 		session.commit().get(new Closure<Success>() {
