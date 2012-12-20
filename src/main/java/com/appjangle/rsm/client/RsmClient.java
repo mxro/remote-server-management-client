@@ -11,6 +11,8 @@ import io.nextweb.common.Interval;
 import io.nextweb.common.Monitor;
 import io.nextweb.common.MonitorContext;
 import io.nextweb.fn.Closure;
+import io.nextweb.fn.ExceptionListener;
+import io.nextweb.fn.ExceptionResult;
 import io.nextweb.fn.Result;
 import io.nextweb.fn.Success;
 import io.nextweb.jre.Nextweb;
@@ -199,13 +201,50 @@ public class RsmClient {
 						return;
 					}
 
-					responsesLink.removeSafe(response).get();
+					final ExceptionListener el = new ExceptionListener() {
 
-					monitor.get().stop().get();
-					session.close().get();
+						@Override
+						public void onFailure(final ExceptionResult r) {
+							callback.onFailure(r.exception());
+						}
+					};
 
-					callback.onFailure(new Exception(
-							"No response from server received in timeout (5 min)."));
+					assert monitor.get() != null;
+					final Result<Success> stop = monitor.get().stop();
+					stop.catchExceptions(el);
+
+					final Result<Success> removeSafe = responsesLink
+							.removeSafe(response);
+					removeSafe.catchExceptions(el);
+
+					final Result<Success> close = session.close();
+
+					close.catchExceptions(el);
+
+					monitor.get(new Closure<Monitor>() {
+
+						@Override
+						public void apply(final Monitor o) {
+
+							removeSafe.get(new Closure<Success>() {
+
+								@Override
+								public void apply(final Success o) {
+
+									close.get(new Closure<Success>() {
+
+										@Override
+										public void apply(final Success o) {
+											callback.onFailure(new Exception(
+													"No response from server received in timeout (5 min)."));
+										}
+									});
+
+								}
+							});
+
+						}
+					});
 
 				} catch (final Exception e) {
 					callback.onFailure(e);
