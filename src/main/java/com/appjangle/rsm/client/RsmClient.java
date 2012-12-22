@@ -195,7 +195,12 @@ public class RsmClient {
 			public void run() {
 
 				try {
-					Thread.sleep(1000 * 60 * 5);
+					int roundsLeft = 60 * 5;
+
+					while (!responseReceived.get() && roundsLeft > 0) {
+						Thread.sleep(1000);
+						roundsLeft--;
+					}
 
 					if (responseReceived.get()) {
 						return;
