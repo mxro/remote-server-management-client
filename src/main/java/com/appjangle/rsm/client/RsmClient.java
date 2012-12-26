@@ -30,6 +30,8 @@ import com.appjangle.rsm.client.commands.v01.SuccessResponse;
 
 public class RsmClient {
 
+	public static int defaultTimeoutInS = 60 * 3;
+
 	/**
 	 * Run an operation on the server for a specific component.
 	 * 
@@ -195,7 +197,7 @@ public class RsmClient {
 			public void run() {
 
 				try {
-					int roundsLeft = 60 * 5;
+					int roundsLeft = defaultTimeoutInS;
 
 					while (!responseReceived.get() && roundsLeft > 0) {
 						Thread.sleep(1000);
