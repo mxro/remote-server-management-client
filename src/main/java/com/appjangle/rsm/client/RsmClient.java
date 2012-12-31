@@ -116,80 +116,11 @@ public class RsmClient {
 					@Override
 					public void apply(final MonitorContext ctx) {
 
-						final ListQuery allQuery = ctx.node().selectAll();
-
-						allQuery.get(new Closure<NodeList>() {
-
-							@Override
-							public void apply(final NodeList o) {
-
-								for (final Node n : o.nodes()) {
-
-									final Object obj = n.value();
-									if (obj instanceof SuccessResponse) {
-										responseReceived.set(true);
-
-										ctx.monitor().stop()
-												.get(new Closure<Success>() {
-
-													@Override
-													public void apply(
-															final Success o) {
-														response.removeSafe(n);
-														responsesLink
-																.removeSafe(response);
-
-														session.close()
-																.get(new Closure<Success>() {
-
-																	@Override
-																	public void apply(
-																			final Success o) {
-
-																		callback.onSuccess();
-																	}
-																});
-
-													}
-												});
-
-										return;
-									}
-
-									if (obj instanceof FailureResponse) {
-										responseReceived.set(true);
-
-										response.remove(n);
-										responsesLink.remove(response);
-										ctx.monitor().stop()
-												.get(new Closure<Success>() {
-
-													@Override
-													public void apply(
-															final Success o) {
-														session.close()
-																.get(new Closure<Success>() {
-
-																	@Override
-																	public void apply(
-																			final Success o) {
-																		final FailureResponse failureResponse = (FailureResponse) obj;
-																		callback.onFailure(failureResponse
-																				.getException());
-																	}
-																});
-													}
-												});
-
-										return;
-									}
-
-								}
-
-							}
-						});
+						checkForCommands(callback, session, responsesLink,
+								response, responseReceived, ctx);
 
 					}
+
 				});
 
 		new Thread() {
@@ -282,5 +213,78 @@ public class RsmClient {
 			}
 		});
 
+	}
+
+	private static void checkForCommands(final OperationCallback callback,
+			final Session session, final Link responsesLink,
+			final Node response, final AtomicBoolean responseReceived,
+			final MonitorContext ctx) {
+		if (!ctx.node().exists()) {
+			return;
+		}
+
+		final ListQuery allQuery = ctx.node().selectAll();
+
+		allQuery.get(new Closure<NodeList>() {
+
+			@Override
+			public void apply(final NodeList o) {
+
+				for (final Node n : o.nodes()) {
+
+					final Object obj = n.value();
+					if (obj instanceof SuccessResponse) {
+						responseReceived.set(true);
+
+						ctx.monitor().stop().get(new Closure<Success>() {
+
+							@Override
+							public void apply(final Success o) {
+								response.removeSafe(n);
+								responsesLink.removeSafe(response);
+
+								session.close().get(new Closure<Success>() {
+
+									@Override
+									public void apply(final Success o) {
+
+										callback.onSuccess();
+									}
+								});
+
+							}
+						});
+
+						return;
+					}
+
+					if (obj instanceof FailureResponse) {
+						responseReceived.set(true);
+
+						response.remove(n);
+						responsesLink.remove(response);
+						ctx.monitor().stop().get(new Closure<Success>() {
+
+							@Override
+							public void apply(final Success o) {
+								session.close().get(new Closure<Success>() {
+
+									@Override
+									public void apply(final Success o) {
+										final FailureResponse failureResponse = (FailureResponse) obj;
+										callback.onFailure(failureResponse
+												.getException());
+									}
+								});
+							}
+						});
+
+						return;
+					}
+
+				}
+
+			}
+		});
 	}
 }
