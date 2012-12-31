@@ -31,8 +31,8 @@ public class RsmClient {
 
 		final Session session = Nextweb.createSession();
 
-		new SendCommandWorker(operation, conf, session)
-				.run(new OperationCallback() {
+		new SendCommandWorker(operation, conf, session,
+				new OperationCallback() {
 
 					@Override
 					public void onSuccess() {
@@ -75,7 +75,7 @@ public class RsmClient {
 							}
 						});
 					}
-				});
+				}).run();
 
 	}
 }

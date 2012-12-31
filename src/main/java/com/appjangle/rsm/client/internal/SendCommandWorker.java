@@ -25,18 +25,20 @@ public class SendCommandWorker {
 
 	final ComponentOperation operation;
 	final ClientConfiguration conf;
-
 	final Session session;
+	final OperationCallback callback;
 
 	public SendCommandWorker(final ComponentOperation operation,
-			final ClientConfiguration conf, final Session session) {
+			final ClientConfiguration conf, final Session session,
+			final OperationCallback callback) {
 		super();
 		this.operation = operation;
 		this.conf = conf;
 		this.session = session;
+		this.callback = callback;
 	}
 
-	public void run(final OperationCallback callback) {
+	public void run() {
 		// prepare response node
 		final Link responsesLink = session.node(conf.getResponsesNode(),
 				conf.getResponseNodeSecret());
@@ -45,20 +47,20 @@ public class SendCommandWorker {
 
 			@Override
 			public void apply(final LinkList responses) {
-				step1(callback, responsesLink, responses);
+				step1_create_response_node(responsesLink, responses);
 			}
 
 		});
 	}
 
-	private void step1(final OperationCallback callback,
-			final Link responsesLink, final LinkList responses) {
+	private void step1_create_response_node(final Link responsesLink,
+			final LinkList responses) {
 		new CreateResponsesNodeProcess().createResponsesNode(responsesLink,
 				responses, new ResponsesNodeCallback() {
 
 					@Override
 					public void onSuccess(final Node response) {
-						step2(callback, responsesLink, response);
+						step2_submit_command(responsesLink, response);
 					}
 
 					@Override
@@ -68,14 +70,14 @@ public class SendCommandWorker {
 				});
 	}
 
-	private void step2(final OperationCallback callback,
-			final Link responsesLink, final Node response) {
+	private void step2_submit_command(final Link responsesLink,
+			final Node response) {
 		new SubmitCommandProcess(operation, conf, session).submitCommand(
 				response, new CommandSubmittedCallback() {
 
 					@Override
 					public void onSuccess() {
-						step3(callback, responsesLink, response);
+						step3_install_monitor(responsesLink, response);
 					}
 
 					@Override
@@ -86,35 +88,36 @@ public class SendCommandWorker {
 				});
 	}
 
-	private void step3(final OperationCallback callback,
-			final Link responsesLink, final Node response) {
+	private void step3_install_monitor(final Link responsesLink,
+			final Node response) {
 		new InstallMonitorProcess().installMonitor(responsesLink, response,
 				new MonitorInstalledCallback() {
 
 					@Override
-					public void onFailure(final Throwable t) {
-						callback.onFailure(t);
+					public void onChangeDetected(final MonitorContext ctx,
+							final AtomicBoolean responseReceived) {
+						step4_check_for_valid_responses(responsesLink,
+								response, ctx, responseReceived);
 					}
 
 					@Override
-					public void onChangeDetected(final MonitorContext ctx,
-							final AtomicBoolean responseReceived) {
-						step4(callback, responsesLink, response, ctx);
+					public void onFailure(final Throwable t) {
+						callback.onFailure(t);
 					}
 
 				});
 	}
 
-	private void step4(final OperationCallback callback,
-			final Link responsesLink, final Node response,
-			final MonitorContext ctx) {
+	private void step4_check_for_valid_responses(final Link responsesLink,
+			final Node response, final MonitorContext ctx,
+			final AtomicBoolean responseReceived) {
 		new ResponseSeekerWorker().checkForResponses(session, ctx.node(),
 				new ResponseReceived() {
 
 					@Override
 					public void onSuccessReceived(
 							final SuccessResponse successResponse) {
-
+						responseReceived.set(true);
 						new StopMonitorProcess().stop(ctx,
 								new StopMonitorCallback() {
 
@@ -153,6 +156,8 @@ public class SendCommandWorker {
 					@Override
 					public void onFailureReceived(
 							final FailureResponse failureResponse) {
+						responseReceived.set(true);
+
 						new StopMonitorProcess().stop(ctx,
 								new StopMonitorCallback() {
 
