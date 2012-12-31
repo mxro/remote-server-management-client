@@ -2,9 +2,7 @@ package com.appjangle.rsm.client.internal;
 
 import io.nextweb.Link;
 import io.nextweb.LinkList;
-import io.nextweb.ListQuery;
 import io.nextweb.Node;
-import io.nextweb.NodeList;
 import io.nextweb.Query;
 import io.nextweb.Session;
 import io.nextweb.common.Interval;
@@ -29,6 +27,7 @@ import com.appjangle.rsm.client.commands.OperationCallback;
 import com.appjangle.rsm.client.commands.v01.ComponentCommandData;
 import com.appjangle.rsm.client.commands.v01.FailureResponse;
 import com.appjangle.rsm.client.commands.v01.SuccessResponse;
+import com.appjangle.rsm.client.internal.ResponseSeekerWorker.ResponseReceived;
 
 public class SendCommandWorker {
 
@@ -80,14 +79,27 @@ public class SendCommandWorker {
 															public void onChangeDetected(
 																	final MonitorContext ctx,
 																	final AtomicBoolean responseReceived) {
-																SendCommandWorker
+																new ResponseSeekerWorker()
 																		.checkForResponses(
-																				callback,
+
 																				session,
-																				responsesLink,
-																				response,
-																				responseReceived,
-																				ctx);
+
+																				ctx.node(),
+																				new ResponseReceived() {
+
+																					@Override
+																					public void onSuccessReceived(
+																							final SuccessResponse response) {
+
+																					}
+
+																					@Override
+																					public void onFailureReceived(
+																							final FailureResponse response) {
+
+																					}
+
+																				});
 															}
 														});
 											}
@@ -240,7 +252,6 @@ public class SendCommandWorker {
 
 					@Override
 					public Monitor monitor() {
-
 						return o;
 					}
 				}, responseReceived);
@@ -285,23 +296,24 @@ public class SendCommandWorker {
 					final Result<Success> stop = monitor.get().stop();
 					stop.catchExceptions(el);
 
-					final Result<Success> removeSafe = responsesLink
-							.removeSafe(response);
-					removeSafe.catchExceptions(el);
-
-					final Result<Success> close = session.close();
-
-					close.catchExceptions(el);
-
-					monitor.get(new Closure<Monitor>() {
+					stop.get(new Closure<Success>() {
 
 						@Override
-						public void apply(final Monitor o) {
+						public void apply(final Success o) {
+
+							final Result<Success> removeSafe = responsesLink
+									.removeSafe(response);
+							removeSafe.catchExceptions(el);
 
 							removeSafe.get(new Closure<Success>() {
 
 								@Override
 								public void apply(final Success o) {
+
+									final Result<Success> close = session
+											.close();
+
+									close.catchExceptions(el);
 
 									close.get(new Closure<Success>() {
 
@@ -325,79 +337,6 @@ public class SendCommandWorker {
 			}
 
 		}.start();
-	}
-
-	public static void checkForResponses(final OperationCallback callback,
-			final Session session, final Link responsesLink,
-			final Node response, final AtomicBoolean responseReceived,
-			final MonitorContext ctx) {
-		if (!ctx.node().exists()) {
-			return;
-		}
-
-		final ListQuery allQuery = ctx.node().selectAll();
-
-		allQuery.get(new Closure<NodeList>() {
-
-			@Override
-			public void apply(final NodeList o) {
-
-				for (final Node n : o.nodes()) {
-
-					final Object obj = n.value();
-					if (obj instanceof SuccessResponse) {
-						responseReceived.set(true);
-
-						ctx.monitor().stop().get(new Closure<Success>() {
-
-							@Override
-							public void apply(final Success o) {
-								response.removeSafe(n);
-								responsesLink.removeSafe(response);
-
-								session.close().get(new Closure<Success>() {
-
-									@Override
-									public void apply(final Success o) {
-
-										callback.onSuccess();
-									}
-								});
-
-							}
-						});
-
-						return;
-					}
-
-					if (obj instanceof FailureResponse) {
-						responseReceived.set(true);
-
-						response.remove(n);
-						responsesLink.remove(response);
-						ctx.monitor().stop().get(new Closure<Success>() {
-
-							@Override
-							public void apply(final Success o) {
-								session.close().get(new Closure<Success>() {
-
-									@Override
-									public void apply(final Success o) {
-										final FailureResponse failureResponse = (FailureResponse) obj;
-										callback.onFailure(failureResponse
-												.getException());
-									}
-								});
-							}
-						});
-
-						return;
-					}
-
-				}
-
-			}
-		});
 	}
 
 }
