@@ -129,15 +129,16 @@ public class RsmClient {
 									if (obj instanceof SuccessResponse) {
 										responseReceived.set(true);
 
-										response.removeSafe(n);
-										responsesLink.removeSafe(response);
-
 										ctx.monitor().stop()
 												.get(new Closure<Success>() {
 
 													@Override
 													public void apply(
 															final Success o) {
+														response.removeSafe(n);
+														responsesLink
+																.removeSafe(response);
+
 														session.close()
 																.get(new Closure<Success>() {
 
