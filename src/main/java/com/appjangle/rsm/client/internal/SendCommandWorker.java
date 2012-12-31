@@ -3,7 +3,6 @@ package com.appjangle.rsm.client.internal;
 import io.nextweb.Link;
 import io.nextweb.LinkList;
 import io.nextweb.Node;
-import io.nextweb.Query;
 import io.nextweb.Session;
 import io.nextweb.common.Interval;
 import io.nextweb.common.Monitor;
@@ -13,21 +12,18 @@ import io.nextweb.fn.ExceptionListener;
 import io.nextweb.fn.ExceptionResult;
 import io.nextweb.fn.Result;
 import io.nextweb.fn.Success;
-import io.nextweb.jre.Nextweb;
-import io.nextweb.operations.exceptions.ImpossibleListener;
-import io.nextweb.operations.exceptions.ImpossibleResult;
 
-import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.appjangle.rsm.client.ClientConfiguration;
 import com.appjangle.rsm.client.RsmClient;
 import com.appjangle.rsm.client.commands.ComponentOperation;
 import com.appjangle.rsm.client.commands.OperationCallback;
-import com.appjangle.rsm.client.commands.v01.ComponentCommandData;
 import com.appjangle.rsm.client.commands.v01.FailureResponse;
 import com.appjangle.rsm.client.commands.v01.SuccessResponse;
+import com.appjangle.rsm.client.internal.CreateResponsesNodeProcess.ResponsesNodeCallback;
 import com.appjangle.rsm.client.internal.ResponseSeekerWorker.ResponseReceived;
+import com.appjangle.rsm.client.internal.SubmitCommandProcess.CommandSubmittedCallback;
 
 public class SendCommandWorker {
 
@@ -53,13 +49,13 @@ public class SendCommandWorker {
 
 			@Override
 			public void apply(final LinkList ll) {
-				createResponsesNode(responsesLink, ll,
-						new ResponsesNodeCallback() {
+				new CreateResponsesNodeProcess().createResponsesNode(
+						responsesLink, ll, new ResponsesNodeCallback() {
 
 							@Override
 							public void onSuccess(final Node response) {
-
-								submitCommand(response,
+								new SubmitCommandProcess(operation, conf,
+										session).submitCommand(response,
 										new CommandSubmittedCallback() {
 
 											@Override
@@ -118,89 +114,6 @@ public class SendCommandWorker {
 						});
 			}
 		});
-	}
-
-	private static interface ResponsesNodeCallback {
-		public void onSuccess(Node response);
-
-		public void onFailure(Throwable t);
-	}
-
-	private final void createResponsesNode(final Link responsesLink,
-			final LinkList ll, final ResponsesNodeCallback callback) {
-		final Query responseQuery = responsesLink.appendSafe("r"
-				+ (new Random().nextInt()));
-
-		responseQuery.catchImpossible(new ImpossibleListener() {
-
-			@Override
-			public void onImpossible(final ImpossibleResult ir) {
-
-				// just try again
-				createResponsesNode(responsesLink, ll, callback);
-
-			}
-		});
-
-		responseQuery.get(new Closure<Node>() {
-
-			@Override
-			public void apply(final Node response) {
-				callback.onSuccess(response);
-			}
-		});
-
-	}
-
-	private static interface CommandSubmittedCallback {
-		public void onSuccess();
-
-		public void onFailure(Throwable t);
-	}
-
-	private final void submitCommand(final Node response,
-			final CommandSubmittedCallback callback) {
-		// preparing command
-		final ComponentCommandData command = new ComponentCommandData();
-
-		// System.out.println("submitting to: " + conf.getCommandsNode());
-
-		command.setOperation(operation);
-		command.setPort(Nextweb
-				.getEngine()
-				.getFactory()
-				.createPort(session, response.uri(),
-						conf.getResponseNodeSecret()));
-
-		// synchronizing all changes with server
-		session.commit().get(new Closure<Success>() {
-
-			@Override
-			public void apply(final Success o) {
-
-				// add to commands node
-				final Result<Success> postRequest = session.post(command,
-						conf.getCommandsNode(), conf.getCommandsNodeSecret());
-
-				postRequest.catchExceptions(new ExceptionListener() {
-
-					@Override
-					public void onFailure(final ExceptionResult r) {
-						callback.onFailure(r.exception());
-					}
-				});
-
-				postRequest.get(new Closure<Success>() {
-
-					@Override
-					public void apply(final Success o) {
-						callback.onSuccess();
-					}
-				});
-
-			}
-		});
-
 	}
 
 	private static interface MonitorInstalledCallback {
