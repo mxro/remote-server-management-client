@@ -4,25 +4,21 @@ import io.nextweb.Link;
 import io.nextweb.LinkList;
 import io.nextweb.Node;
 import io.nextweb.Session;
-import io.nextweb.common.Interval;
-import io.nextweb.common.Monitor;
 import io.nextweb.common.MonitorContext;
 import io.nextweb.fn.Closure;
-import io.nextweb.fn.ExceptionListener;
-import io.nextweb.fn.ExceptionResult;
-import io.nextweb.fn.Result;
-import io.nextweb.fn.Success;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.appjangle.rsm.client.ClientConfiguration;
-import com.appjangle.rsm.client.RsmClient;
 import com.appjangle.rsm.client.commands.ComponentOperation;
 import com.appjangle.rsm.client.commands.OperationCallback;
 import com.appjangle.rsm.client.commands.v01.FailureResponse;
 import com.appjangle.rsm.client.commands.v01.SuccessResponse;
+import com.appjangle.rsm.client.internal.ClearResponseNodeProcess.ResponseNodeCleared;
 import com.appjangle.rsm.client.internal.CreateResponsesNodeProcess.ResponsesNodeCallback;
+import com.appjangle.rsm.client.internal.InstallMonitorProcess.MonitorInstalledCallback;
 import com.appjangle.rsm.client.internal.ResponseSeekerWorker.ResponseReceived;
+import com.appjangle.rsm.client.internal.StopMonitorProcess.StopMonitorCallback;
 import com.appjangle.rsm.client.internal.SubmitCommandProcess.CommandSubmittedCallback;
 
 public class SendCommandWorker {
@@ -48,22 +44,93 @@ public class SendCommandWorker {
 		responsesLink.selectAllLinks().get(new Closure<LinkList>() {
 
 			@Override
-			public void apply(final LinkList ll) {
-				new CreateResponsesNodeProcess().createResponsesNode(
-						responsesLink, ll, new ResponsesNodeCallback() {
+			public void apply(final LinkList responses) {
+				step1(callback, responsesLink, responses);
+			}
 
-							@Override
-							public void onSuccess(final Node response) {
-								new SubmitCommandProcess(operation, conf,
-										session).submitCommand(response,
-										new CommandSubmittedCallback() {
+		});
+	}
 
-											@Override
-											public void onSuccess() {
-												installMonitor(
+	private void step1(final OperationCallback callback,
+			final Link responsesLink, final LinkList responses) {
+		new CreateResponsesNodeProcess().createResponsesNode(responsesLink,
+				responses, new ResponsesNodeCallback() {
+
+					@Override
+					public void onSuccess(final Node response) {
+						step2(callback, responsesLink, response);
+					}
+
+					@Override
+					public void onFailure(final Throwable t) {
+						callback.onFailure(t);
+					}
+				});
+	}
+
+	private void step2(final OperationCallback callback,
+			final Link responsesLink, final Node response) {
+		new SubmitCommandProcess(operation, conf, session).submitCommand(
+				response, new CommandSubmittedCallback() {
+
+					@Override
+					public void onSuccess() {
+						step3(callback, responsesLink, response);
+					}
+
+					@Override
+					public void onFailure(final Throwable t) {
+						callback.onFailure(t);
+
+					}
+				});
+	}
+
+	private void step3(final OperationCallback callback,
+			final Link responsesLink, final Node response) {
+		new InstallMonitorProcess().installMonitor(responsesLink, response,
+				new MonitorInstalledCallback() {
+
+					@Override
+					public void onFailure(final Throwable t) {
+						callback.onFailure(t);
+					}
+
+					@Override
+					public void onChangeDetected(final MonitorContext ctx,
+							final AtomicBoolean responseReceived) {
+						step4(callback, responsesLink, response, ctx);
+					}
+
+				});
+	}
+
+	private void step4(final OperationCallback callback,
+			final Link responsesLink, final Node response,
+			final MonitorContext ctx) {
+		new ResponseSeekerWorker().checkForResponses(session, ctx.node(),
+				new ResponseReceived() {
+
+					@Override
+					public void onSuccessReceived(
+							final SuccessResponse successResponse) {
+
+						new StopMonitorProcess().stop(ctx,
+								new StopMonitorCallback() {
+
+									@Override
+									public void onSuccess() {
+										new ClearResponseNodeProcess()
+												.clearResponse(
 														responsesLink,
 														response,
-														new MonitorInstalledCallback() {
+														new ResponseNodeCleared() {
+
+															@Override
+															public void onSuccess() {
+																callback.onSuccess();
+
+															}
 
 															@Override
 															public void onFailure(
@@ -71,183 +138,54 @@ public class SendCommandWorker {
 																callback.onFailure(t);
 															}
 
-															@Override
-															public void onChangeDetected(
-																	final MonitorContext ctx,
-																	final AtomicBoolean responseReceived) {
-																new ResponseSeekerWorker()
-																		.checkForResponses(
-																				session,
-																				ctx.node(),
-																				new ResponseReceived() {
-
-																					@Override
-																					public void onSuccessReceived(
-																							final SuccessResponse response) {
-
-																					}
-
-																					@Override
-																					public void onFailureReceived(
-																							final FailureResponse response) {
-
-																					}
-
-																				});
-															}
 														});
-											}
 
-											@Override
-											public void onFailure(
-													final Throwable t) {
-												callback.onFailure(t);
+									}
 
-											}
-										});
-							}
+									@Override
+									public void onFailure(final Throwable t) {
+										callback.onFailure(t);
+									}
+								});
 
-							@Override
-							public void onFailure(final Throwable t) {
-								callback.onFailure(t);
-							}
-						});
-			}
-		});
-	}
-
-	private static interface MonitorInstalledCallback {
-		public void onChangeDetected(MonitorContext ctx,
-				AtomicBoolean responseReceived);
-
-		public void onFailure(Throwable t);
-	}
-
-	private final void installMonitor(final Link responsesLink,
-			final Node response, final MonitorInstalledCallback callback) {
-
-		final AtomicBoolean responseReceived = new AtomicBoolean(false);
-
-		// monitor node for response from server
-		final Result<Monitor> monitor = response.monitor(Interval.FAST,
-				new Closure<MonitorContext>() {
+					}
 
 					@Override
-					public void apply(final MonitorContext ctx) {
+					public void onFailureReceived(
+							final FailureResponse failureResponse) {
+						new StopMonitorProcess().stop(ctx,
+								new StopMonitorCallback() {
 
-						callback.onChangeDetected(ctx, responseReceived);
+									@Override
+									public void onSuccess() {
+										new ClearResponseNodeProcess()
+												.clearResponse(
+														responsesLink,
+														response,
+														new ResponseNodeCleared() {
 
+															@Override
+															public void onSuccess() {
+																callback.onFailure(failureResponse.exception);
+															}
+
+															@Override
+															public void onFailure(
+																	final Throwable t) {
+																callback.onFailure(t);
+															}
+
+														});
+
+									}
+
+									@Override
+									public void onFailure(final Throwable t) {
+										callback.onFailure(t);
+									}
+								});
 					}
 
 				});
-
-		monitor.catchExceptions(new ExceptionListener() {
-
-			@Override
-			public void onFailure(final ExceptionResult r) {
-				callback.onFailure(r.exception());
-			}
-		});
-
-		// trigger once after startup
-		monitor.get(new Closure<Monitor>() {
-
-			@Override
-			public void apply(final Monitor o) {
-				callback.onChangeDetected(new MonitorContext() {
-
-					@Override
-					public Node node() {
-						return response;
-					}
-
-					@Override
-					public Monitor monitor() {
-						return o;
-					}
-				}, responseReceived);
-			}
-		});
-
-		// to assure that monitor does not wait infinitely
-		checkForTimeout(responsesLink, response, callback, responseReceived,
-				monitor);
-
 	}
-
-	private void checkForTimeout(final Link responsesLink, final Node response,
-			final MonitorInstalledCallback callback,
-			final AtomicBoolean responseReceived, final Result<Monitor> monitor) {
-		new Thread() {
-
-			@Override
-			public void run() {
-
-				try {
-					int roundsLeft = RsmClient.defaultTimeoutInS;
-
-					while (!responseReceived.get() && roundsLeft > 0) {
-						Thread.sleep(1000);
-						roundsLeft--;
-					}
-
-					if (responseReceived.get()) {
-						return;
-					}
-
-					final ExceptionListener el = new ExceptionListener() {
-
-						@Override
-						public void onFailure(final ExceptionResult r) {
-							callback.onFailure(r.exception());
-						}
-					};
-
-					assert monitor.get() != null;
-					final Result<Success> stop = monitor.get().stop();
-					stop.catchExceptions(el);
-
-					stop.get(new Closure<Success>() {
-
-						@Override
-						public void apply(final Success o) {
-
-							final Result<Success> removeSafe = responsesLink
-									.removeSafe(response);
-							removeSafe.catchExceptions(el);
-
-							removeSafe.get(new Closure<Success>() {
-
-								@Override
-								public void apply(final Success o) {
-
-									final Result<Success> close = session
-											.close();
-
-									close.catchExceptions(el);
-
-									close.get(new Closure<Success>() {
-
-										@Override
-										public void apply(final Success o) {
-											callback.onFailure(new Exception(
-													"No response from server received in timeout (5 min)."));
-										}
-									});
-
-								}
-							});
-
-						}
-					});
-
-				} catch (final Exception e) {
-					callback.onFailure(e);
-				}
-
-			}
-
-		}.start();
-	}
-
 }
