@@ -81,9 +81,7 @@ public class SendCommandWorker {
 																	final AtomicBoolean responseReceived) {
 																new ResponseSeekerWorker()
 																		.checkForResponses(
-
 																				session,
-
 																				ctx.node(),
 																				new ResponseReceived() {
 

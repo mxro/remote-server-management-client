@@ -17,13 +17,13 @@ public class ResponseSeekerWorker {
 		public void onFailureReceived(FailureResponse response);
 	}
 
-	public void checkForResponses(final Session session, final Node node,
+	public void checkForResponses(final Session session, final Node atNode,
 			final ResponseReceived callback) {
-		if (!node.exists()) {
+		if (!atNode.exists()) {
 			return;
 		}
 
-		final ListQuery allQuery = node.selectAll();
+		final ListQuery allQuery = atNode.selectAll();
 
 		allQuery.get(new Closure<NodeList>() {
 
