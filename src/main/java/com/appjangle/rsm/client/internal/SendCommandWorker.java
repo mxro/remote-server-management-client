@@ -32,9 +32,20 @@ import com.appjangle.rsm.client.commands.v01.SuccessResponse;
 
 public class SendCommandWorker {
 
-	public static void performCommand(final ComponentOperation operation,
-			final ClientConfiguration conf, final OperationCallback callback,
-			final Session session) {
+	final ComponentOperation operation;
+	final ClientConfiguration conf;
+
+	final Session session;
+
+	public SendCommandWorker(final ComponentOperation operation,
+			final ClientConfiguration conf, final Session session) {
+		super();
+		this.operation = operation;
+		this.conf = conf;
+		this.session = session;
+	}
+
+	public void run(final OperationCallback callback) {
 		// prepare response node
 		final Link responsesLink = session.node(conf.getResponsesNode(),
 				conf.getResponseNodeSecret());
@@ -43,15 +54,102 @@ public class SendCommandWorker {
 
 			@Override
 			public void apply(final LinkList ll) {
-				createResponsesNode(operation, conf, callback, session,
-						responsesLink, ll);
+				createResponsesNode(responsesLink, ll,
+						new ResponsesNodeCallback() {
+
+							@Override
+							public void onSuccess(final Node response) {
+
+								submitCommand(response,
+										new CommandSubmittedCallback() {
+
+											@Override
+											public void onSuccess() {
+												installMonitor(
+														responsesLink,
+														response,
+														new MonitorInstalledCallback() {
+
+															@Override
+															public void onFailure(
+																	final Throwable t) {
+																callback.onFailure(t);
+															}
+
+															@Override
+															public void onChangeDetected(
+																	final MonitorContext ctx,
+																	final AtomicBoolean responseReceived) {
+																SendCommandWorker
+																		.checkForResponses(
+																				callback,
+																				session,
+																				responsesLink,
+																				response,
+																				responseReceived,
+																				ctx);
+															}
+														});
+											}
+
+											@Override
+											public void onFailure(
+													final Throwable t) {
+												callback.onFailure(t);
+
+											}
+										});
+							}
+
+							@Override
+							public void onFailure(final Throwable t) {
+								callback.onFailure(t);
+							}
+						});
 			}
 		});
 	}
 
-	public static void submitCommand(final ComponentOperation operation,
-			final ClientConfiguration conf, final OperationCallback callback,
-			final Session session, final Link responsesLink, final Node response) {
+	private static interface ResponsesNodeCallback {
+		public void onSuccess(Node response);
+
+		public void onFailure(Throwable t);
+	}
+
+	private final void createResponsesNode(final Link responsesLink,
+			final LinkList ll, final ResponsesNodeCallback callback) {
+		final Query responseQuery = responsesLink.appendSafe("r"
+				+ (new Random().nextInt()));
+
+		responseQuery.catchImpossible(new ImpossibleListener() {
+
+			@Override
+			public void onImpossible(final ImpossibleResult ir) {
+
+				// just try again
+				createResponsesNode(responsesLink, ll, callback);
+
+			}
+		});
+
+		responseQuery.get(new Closure<Node>() {
+
+			@Override
+			public void apply(final Node response) {
+				callback.onSuccess(response);
+			}
+		});
+
+	}
+
+	private static interface CommandSubmittedCallback {
+		public void onSuccess();
+
+		public void onFailure(Throwable t);
+	}
+
+	private final void submitCommand(final Node response,
+			final CommandSubmittedCallback callback) {
 		// preparing command
 		final ComponentCommandData command = new ComponentCommandData();
 
@@ -64,6 +162,47 @@ public class SendCommandWorker {
 				.createPort(session, response.uri(),
 						conf.getResponseNodeSecret()));
 
+		// synchronizing all changes with server
+		session.commit().get(new Closure<Success>() {
+
+			@Override
+			public void apply(final Success o) {
+
+				// add to commands node
+				final Result<Success> postRequest = session.post(command,
+						conf.getCommandsNode(), conf.getCommandsNodeSecret());
+
+				postRequest.catchExceptions(new ExceptionListener() {
+
+					@Override
+					public void onFailure(final ExceptionResult r) {
+						callback.onFailure(r.exception());
+					}
+				});
+
+				postRequest.get(new Closure<Success>() {
+
+					@Override
+					public void apply(final Success o) {
+						callback.onSuccess();
+					}
+				});
+
+			}
+		});
+
+	}
+
+	private static interface MonitorInstalledCallback {
+		public void onChangeDetected(MonitorContext ctx,
+				AtomicBoolean responseReceived);
+
+		public void onFailure(Throwable t);
+	}
+
+	private final void installMonitor(final Link responsesLink,
+			final Node response, final MonitorInstalledCallback callback) {
+
 		final AtomicBoolean responseReceived = new AtomicBoolean(false);
 
 		// monitor node for response from server
@@ -73,13 +212,50 @@ public class SendCommandWorker {
 					@Override
 					public void apply(final MonitorContext ctx) {
 
-						SendCommandWorker.checkForResponses(callback, session,
-								responsesLink, response, responseReceived, ctx);
+						callback.onChangeDetected(ctx, responseReceived);
 
 					}
 
 				});
 
+		monitor.catchExceptions(new ExceptionListener() {
+
+			@Override
+			public void onFailure(final ExceptionResult r) {
+				callback.onFailure(r.exception());
+			}
+		});
+
+		// trigger once after startup
+		monitor.get(new Closure<Monitor>() {
+
+			@Override
+			public void apply(final Monitor o) {
+				callback.onChangeDetected(new MonitorContext() {
+
+					@Override
+					public Node node() {
+						return response;
+					}
+
+					@Override
+					public Monitor monitor() {
+
+						return o;
+					}
+				}, responseReceived);
+			}
+		});
+
+		// to assure that monitor does not wait infinitely
+		checkForTimeout(responsesLink, response, callback, responseReceived,
+				monitor);
+
+	}
+
+	private void checkForTimeout(final Link responsesLink, final Node response,
+			final MonitorInstalledCallback callback,
+			final AtomicBoolean responseReceived, final Result<Monitor> monitor) {
 		new Thread() {
 
 			@Override
@@ -149,27 +325,6 @@ public class SendCommandWorker {
 			}
 
 		}.start();
-
-		// synchronizing all changes with server
-		session.commit().get(new Closure<Success>() {
-
-			@Override
-			public void apply(final Success o) {
-
-				// add to commands node
-				session.post(command, conf.getCommandsNode(),
-						conf.getCommandsNodeSecret());
-
-				session.commit().get(new Closure<Success>() {
-
-					@Override
-					public void apply(final Success o) {
-
-					}
-				});
-			}
-		});
-
 	}
 
 	public static void checkForResponses(final OperationCallback callback,
@@ -243,36 +398,6 @@ public class SendCommandWorker {
 
 			}
 		});
-	}
-
-	public static void createResponsesNode(final ComponentOperation operation,
-			final ClientConfiguration conf, final OperationCallback callback,
-			final Session session, final Link responsesLink, final LinkList ll) {
-		final Query responseQuery = responsesLink.appendSafe("r"
-				+ (new Random().nextInt()));
-
-		responseQuery.catchImpossible(new ImpossibleListener() {
-
-			@Override
-			public void onImpossible(final ImpossibleResult ir) {
-
-				// just try again
-				createResponsesNode(operation, conf, callback, session,
-						responsesLink, ll);
-
-			}
-		});
-
-		responseQuery.get(new Closure<Node>() {
-
-			@Override
-			public void apply(final Node response) {
-
-				submitCommand(operation, conf, callback, session,
-						responsesLink, response);
-			}
-		});
-
 	}
 
 }

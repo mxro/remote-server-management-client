@@ -1,6 +1,11 @@
 package com.appjangle.rsm.client;
 
 import io.nextweb.Session;
+import io.nextweb.fn.Closure;
+import io.nextweb.fn.ExceptionListener;
+import io.nextweb.fn.ExceptionResult;
+import io.nextweb.fn.Result;
+import io.nextweb.fn.Success;
 import io.nextweb.jre.Nextweb;
 
 import com.appjangle.rsm.client.commands.ComponentOperation;
@@ -26,7 +31,51 @@ public class RsmClient {
 
 		final Session session = Nextweb.createSession();
 
-		SendCommandWorker.performCommand(operation, conf, callback, session);
+		new SendCommandWorker(operation, conf, session)
+				.run(new OperationCallback() {
+
+					@Override
+					public void onSuccess() {
+						final Result<Success> closeRequest = session.close();
+
+						closeRequest.catchExceptions(new ExceptionListener() {
+
+							@Override
+							public void onFailure(final ExceptionResult r) {
+								callback.onFailure(r.exception());
+							}
+						});
+
+						closeRequest.get(new Closure<Success>() {
+
+							@Override
+							public void apply(final Success o) {
+								callback.onSuccess();
+							}
+						});
+					}
+
+					@Override
+					public void onFailure(final Throwable t) {
+						final Result<Success> closeRequest = session.close();
+
+						closeRequest.catchExceptions(new ExceptionListener() {
+
+							@Override
+							public void onFailure(final ExceptionResult r) {
+								callback.onFailure(r.exception());
+							}
+						});
+
+						closeRequest.get(new Closure<Success>() {
+
+							@Override
+							public void apply(final Success o) {
+								callback.onFailure(t);
+							}
+						});
+					}
+				});
 
 	}
 }
