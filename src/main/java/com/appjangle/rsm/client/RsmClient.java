@@ -10,7 +10,7 @@ import io.nextweb.jre.Nextweb;
 
 import com.appjangle.rsm.client.commands.ComponentOperation;
 import com.appjangle.rsm.client.commands.OperationCallback;
-import com.appjangle.rsm.client.internal.SendCommandWorker;
+import com.appjangle.rsm.client.internal.SendCommandProcess;
 
 public class RsmClient {
 
@@ -31,7 +31,7 @@ public class RsmClient {
 
 		final Session session = Nextweb.createSession();
 
-		new SendCommandWorker(operation, conf, session,
+		new SendCommandProcess(operation, conf, session,
 				new OperationCallback() {
 
 					@Override

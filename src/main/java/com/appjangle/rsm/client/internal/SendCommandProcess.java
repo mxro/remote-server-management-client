@@ -17,18 +17,18 @@ import com.appjangle.rsm.client.commands.v01.SuccessResponse;
 import com.appjangle.rsm.client.internal.ClearResponseNodeProcess.ResponseNodeCleared;
 import com.appjangle.rsm.client.internal.CreateResponsesNodeProcess.ResponsesNodeCallback;
 import com.appjangle.rsm.client.internal.InstallMonitorProcess.MonitorInstalledCallback;
-import com.appjangle.rsm.client.internal.ResponseSeekerWorker.ResponseReceived;
+import com.appjangle.rsm.client.internal.SeekResponsesProcess.ResponseReceived;
 import com.appjangle.rsm.client.internal.StopMonitorProcess.StopMonitorCallback;
 import com.appjangle.rsm.client.internal.SubmitCommandProcess.CommandSubmittedCallback;
 
-public class SendCommandWorker {
+public class SendCommandProcess {
 
 	final ComponentOperation operation;
 	final ClientConfiguration conf;
 	final Session session;
 	final OperationCallback callback;
 
-	public SendCommandWorker(final ComponentOperation operation,
+	public SendCommandProcess(final ComponentOperation operation,
 			final ClientConfiguration conf, final Session session,
 			final OperationCallback callback) {
 		super();
@@ -111,7 +111,7 @@ public class SendCommandWorker {
 	private void step4_check_for_valid_responses(final Link responsesLink,
 			final Node response, final MonitorContext ctx,
 			final AtomicBoolean responseReceived) {
-		new ResponseSeekerWorker().checkForResponses(session, ctx.node(),
+		new SeekResponsesProcess().checkForResponses(session, ctx.node(),
 				new ResponseReceived() {
 
 					@Override

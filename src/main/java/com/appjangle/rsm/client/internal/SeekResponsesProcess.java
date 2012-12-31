@@ -9,7 +9,7 @@ import io.nextweb.fn.Closure;
 import com.appjangle.rsm.client.commands.v01.FailureResponse;
 import com.appjangle.rsm.client.commands.v01.SuccessResponse;
 
-public class ResponseSeekerWorker {
+public class SeekResponsesProcess {
 
 	public static interface ResponseReceived {
 		public void onSuccessReceived(SuccessResponse response);
