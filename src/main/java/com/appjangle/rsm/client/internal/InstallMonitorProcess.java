@@ -88,7 +88,7 @@ public class InstallMonitorProcess {
 					int roundsLeft = RsmClient.defaultTimeoutInS;
 
 					while (!responseReceived.get() && roundsLeft > 0) {
-						System.out.println("awaiting ..");
+						// System.out.println("awaiting ..");
 						Thread.sleep(1000);
 						roundsLeft--;
 					}
@@ -97,7 +97,7 @@ public class InstallMonitorProcess {
 						return;
 					}
 
-					System.out.println("error");
+					// System.out.println("error");
 
 					final ExceptionListener el = new ExceptionListener() {
 
@@ -111,12 +111,12 @@ public class InstallMonitorProcess {
 					final Result<Success> stop = monitor.get().stop();
 					stop.catchExceptions(el);
 
-					System.out.println("stopping monitor");
+					// System.out.println("stopping monitor");
 					stop.get(new Closure<Success>() {
 
 						@Override
 						public void apply(final Success o) {
-							System.out.println("monitor stopped");
+							// System.out.println("monitor stopped");
 							final Result<Success> removeSafe = responsesLink
 									.removeSafe(response);
 
