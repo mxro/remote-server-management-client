@@ -59,8 +59,10 @@ public class ClearResponseNodeProcess {
 
 				res.add(removeResponse);
 
-				responseNode.getSession()
-						.getAll(true, res.toArray(new BasicResult<?>[0]))
+				responseNode
+						.getSession()
+						.getAll(true,
+								res.toArray(new BasicResult<?>[res.size()]))
 						.get(new Closure<SuccessFail>() {
 
 							@Override

@@ -14,7 +14,7 @@ import com.appjangle.rsm.client.internal.SendCommandProcess;
 
 public class RsmClient {
 
-	public static int defaultTimeoutInS = 60 * 3;
+	public static int defaultTimeoutInS = 110;
 
 	/**
 	 * Run an operation on the server for a specific component.
