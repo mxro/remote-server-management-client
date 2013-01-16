@@ -136,7 +136,7 @@ public class InstallMonitorProcess {
                         }
                     });
 
-                    // response.getSession().commit().get();
+                    response.getSession().commit().get();
 
                 } catch (final Exception e) {
                     callback.onFailure(e);
