@@ -14,68 +14,72 @@ import com.appjangle.rsm.client.internal.SendCommandProcess;
 
 public class RsmClient {
 
-	public static int defaultTimeoutInS = 110;
+    public static int defaultTimeoutInS = 110;
 
-	/**
-	 * Run an operation on the server for a specific component.
-	 * 
-	 * @param operation
-	 * @param forId
-	 * @param conf
-	 * @param callback
-	 */
-	public static void performCommand(final ComponentOperation operation,
-			final ClientConfiguration conf, final OperationCallback callback) {
+    /**
+     * Run an operation on the server for a specific component.
+     * 
+     * @param operation
+     * @param forId
+     * @param conf
+     * @param callback
+     */
+    public static void performCommand(final ComponentOperation operation,
+            final ClientConfiguration conf, final OperationCallback callback) {
 
-		assert operation != null;
+        assert operation != null;
 
-		final Session session = Nextweb.createSession();
+        final Session session = Nextweb.createSession();
 
-		new SendCommandProcess(operation, conf, session,
-				new OperationCallback() {
+        new SendCommandProcess(operation, conf, session,
+                new OperationCallback() {
 
-					@Override
-					public void onSuccess() {
-						final Result<Success> closeRequest = session.close();
+                    @Override
+                    public void onSuccess() {
+                        final Result<Success> closeRequest = session.close();
 
-						closeRequest.catchExceptions(new ExceptionListener() {
+                        closeRequest.catchExceptions(new ExceptionListener() {
 
-							@Override
-							public void onFailure(final ExceptionResult r) {
-								callback.onFailure(r.exception());
-							}
-						});
+                            @Override
+                            public void onFailure(final ExceptionResult r) {
+                                callback.onFailure(r.exception());
+                            }
+                        });
 
-						closeRequest.get(new Closure<Success>() {
+                        closeRequest.get(new Closure<Success>() {
 
-							@Override
-							public void apply(final Success o) {
-								callback.onSuccess();
-							}
-						});
-					}
+                            @Override
+                            public void apply(final Success o) {
+                                callback.onSuccess();
+                            }
+                        });
+                    }
 
-					@Override
-					public void onFailure(final Throwable t) {
-						final Result<Success> closeRequest = session.close();
+                    @Override
+                    public void onFailure(final Throwable t) {
+                        final Result<Success> closeRequest = session.close();
 
-						closeRequest.catchExceptions(new ExceptionListener() {
+                        final Exception exception = new Exception(
+                                "Failure while sending command.", t);
 
-							@Override
-							public void onFailure(final ExceptionResult r) {
-								callback.onFailure(r.exception());
-							}
-						});
+                        closeRequest.catchExceptions(new ExceptionListener() {
 
-						closeRequest.get(new Closure<Success>() {
+                            @Override
+                            public void onFailure(final ExceptionResult r) {
+                                callback.onFailure(r.exception());
+                            }
+                        });
 
-							@Override
-							public void apply(final Success o) {
-								callback.onFailure(t);
-							}
-						});
-					}
-				}).run();
+                        closeRequest.get(new Closure<Success>() {
 
-	}
+                            @Override
+                            public void apply(final Success o) {
+
+                                callback.onFailure(exception);
+                            }
+                        });
+                    }
+                }).run();
+
+    }
 }

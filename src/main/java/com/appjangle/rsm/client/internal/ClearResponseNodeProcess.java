@@ -4,91 +4,105 @@ import io.nextweb.Link;
 import io.nextweb.LinkList;
 import io.nextweb.LinkListQuery;
 import io.nextweb.Node;
-import io.nextweb.fn.BasicResult;
 import io.nextweb.fn.Closure;
 import io.nextweb.fn.ExceptionListener;
 import io.nextweb.fn.ExceptionResult;
 import io.nextweb.fn.Result;
 import io.nextweb.fn.Success;
-import io.nextweb.fn.SuccessFail;
-
-import java.util.ArrayList;
-import java.util.List;
+import one.async.joiner.CallbackLatch;
 
 public class ClearResponseNodeProcess {
 
-	public static interface ResponseNodeCleared {
-		public void onSuccess();
+    public static interface ResponseNodeCleared {
+        public void onSuccess();
 
-		public void onFailure(Throwable t);
-	}
+        public void onFailure(Throwable t);
+    }
 
-	public void clearResponse(final Link responsesLink,
-			final Node responseNode, final ResponseNodeCleared callback) {
+    public void clearResponse(final Link responsesLink,
+            final Node responseNode, final ResponseNodeCleared callback) {
 
-		final LinkListQuery allChildren = responseNode.selectAllLinks();
+        final LinkListQuery allChildren = responseNode.selectAllLinks();
 
-		allChildren.catchExceptions(createExceptionListener("selectChildren",
-				callback));
+        allChildren.catchExceptions(new ExceptionListener() {
 
-		allChildren.get(new Closure<LinkList>() {
+            @Override
+            public void onFailure(final ExceptionResult r) {
+                callback.onFailure(r.exception());
+            }
+        });
 
-			@Override
-			public void apply(final LinkList o) {
+        allChildren.get(new Closure<LinkList>() {
 
-				final List<BasicResult<?>> res = new ArrayList<BasicResult<?>>(
-						o.size() + 1);
+            @Override
+            public void apply(final LinkList o) {
 
-				for (final Link l : o) {
+                final CallbackLatch latch = new CallbackLatch(o.size() + 1) {
 
-					final Result<Success> removeChildReq = responseNode
-							.removeSafe(l);
+                    @Override
+                    public void onFailed(final Throwable t) {
+                        callback.onFailure(t);
+                    }
 
-					removeChildReq.catchExceptions(createExceptionListener(
-							"remove child " + l, callback));
+                    @Override
+                    public void onCompleted() {
+                        callback.onSuccess();
+                    }
+                };
 
-					res.add(removeChildReq);
+                for (final Link l : o) {
 
-				}
+                    final Result<Success> removeChildReq = responseNode
+                            .removeSafe(l);
 
-				final Result<Success> removeResponse = responsesLink
-						.removeSafe(responseNode);
+                    removeChildReq.catchExceptions(createExceptionListener(
+                            "remove child " + l, latch));
 
-				removeResponse.catchExceptions(createExceptionListener(
-						"removing response " + responseNode, callback));
+                    removeChildReq.get(new Closure<Success>() {
 
-				res.add(removeResponse);
+                        @Override
+                        public void apply(final Success o) {
+                            latch.registerSuccess();
+                        }
+                    });
 
-				responseNode
-						.getSession()
-						.getAll(true,
-								res.toArray(new BasicResult<?>[res.size()]))
-						.get(new Closure<SuccessFail>() {
+                }
 
-							@Override
-							public void apply(final SuccessFail o) {
-								if (o.isFail()) {
-									callback.onFailure(o.getException());
-									return;
-								}
+                final Result<Success> removeResponse = responsesLink
+                        .removeSafe(responseNode);
 
-								callback.onSuccess();
-							}
-						});
+                removeResponse.catchExceptions(createExceptionListener(
+                        "Removing response " + responseNode, latch));
 
-			}
-		});
+                removeResponse.get(new Closure<Success>() {
 
-	}
+                    @Override
+                    public void apply(final Success o) {
+                        latch.registerSuccess();
+                    }
+                });
 
-	private ExceptionListener createExceptionListener(final String message,
-			final ResponseNodeCleared callback) {
-		return new ExceptionListener() {
+                responseNode.getSession().commit().get(new Closure<Success>() {
 
-			@Override
-			public void onFailure(final ExceptionResult r) {
-				callback.onFailure(new Exception(message, r.exception()));
-			}
-		};
-	}
+                    @Override
+                    public void apply(final Success o) {
+
+                    }
+                });
+
+            }
+        });
+
+    }
+
+    private ExceptionListener createExceptionListener(final String message,
+            final CallbackLatch callback) {
+        return new ExceptionListener() {
+
+            @Override
+            public void onFailure(final ExceptionResult r) {
+                callback.registerFail(new Exception(message, r.exception()));
+            }
+        };
+    }
 }

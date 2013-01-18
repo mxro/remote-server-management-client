@@ -15,69 +15,77 @@ import com.appjangle.rsm.client.commands.v01.ComponentCommandData;
 
 public class SubmitCommandProcess {
 
-	final ComponentOperation operation;
+    final ComponentOperation operation;
 
-	final ClientConfiguration conf;
+    final ClientConfiguration conf;
 
-	final Session session;
+    final Session session;
 
-	public static interface CommandSubmittedCallback {
-		public void onSuccess();
+    public static interface CommandSubmittedCallback {
+        public void onSuccess();
 
-		public void onFailure(Throwable t);
-	}
+        public void onFailure(Throwable t);
+    }
 
-	public final void submitCommand(final Node response,
-			final CommandSubmittedCallback callback) {
-		// preparing command
-		final ComponentCommandData command = new ComponentCommandData();
+    public final void submitCommand(final Node response,
+            final CommandSubmittedCallback callback) {
+        // preparing command
+        final ComponentCommandData command = new ComponentCommandData();
 
-		// System.out.println("submitting to: " + conf.getCommandsNode());
+        // System.out.println("submitting to: " + conf.getCommandsNode());
 
-		command.setOperation(operation);
-		command.setPort(Nextweb
-				.getEngine()
-				.getFactory()
-				.createPort(session, response.uri(),
-						conf.getResponseNodeSecret()));
+        command.setOperation(operation);
+        command.setPort(Nextweb
+                .getEngine()
+                .getFactory()
+                .createPort(session, response.uri(),
+                        conf.getResponseNodeSecret()));
 
-		// synchronizing all changes with server
-		session.commit().get(new Closure<Success>() {
+        // synchronizing all changes with server
+        session.commit().get(new Closure<Success>() {
 
-			@Override
-			public void apply(final Success o) {
+            @Override
+            public void apply(final Success o) {
 
-				// add to commands node
-				final Result<Success> postRequest = session.post(command,
-						conf.getCommandsNode(), conf.getCommandsNodeSecret());
+                // add to commands node
+                final Result<Success> postRequest = session.post(command,
+                        conf.getCommandsNode(), conf.getCommandsNodeSecret());
 
-				postRequest.catchExceptions(new ExceptionListener() {
+                postRequest.catchExceptions(new ExceptionListener() {
 
-					@Override
-					public void onFailure(final ExceptionResult r) {
-						callback.onFailure(r.exception());
-					}
-				});
+                    @Override
+                    public void onFailure(final ExceptionResult r) {
+                        callback.onFailure(r.exception());
+                    }
+                });
 
-				postRequest.get(new Closure<Success>() {
+                postRequest.get(new Closure<Success>() {
 
-					@Override
-					public void apply(final Success o) {
-						callback.onSuccess();
-					}
-				});
+                    @Override
+                    public void apply(final Success o) {
+                        callback.onSuccess();
+                    }
+                });
 
-			}
-		});
+                session.commit().get(new Closure<Success>() {
 
-	}
+                    @Override
+                    public void apply(final Success o) {
 
-	public SubmitCommandProcess(final ComponentOperation operation,
-			final ClientConfiguration conf, final Session session) {
-		super();
-		this.operation = operation;
-		this.conf = conf;
-		this.session = session;
-	}
+                    }
+                });
+
+            }
+        });
+
+    }
+
+    public SubmitCommandProcess(final ComponentOperation operation,
+            final ClientConfiguration conf, final Session session) {
+        super();
+        this.operation = operation;
+        this.conf = conf;
+        this.session = session;
+    }
 
 }
