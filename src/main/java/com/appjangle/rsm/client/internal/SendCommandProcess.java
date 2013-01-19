@@ -96,6 +96,7 @@ public class SendCommandProcess {
                     @Override
                     public void onChangeDetected(final MonitorContext ctx,
                             final AtomicBoolean responseReceived) {
+
                         step4_check_for_valid_responses(responsesLink,
                                 response, ctx, responseReceived);
                     }
