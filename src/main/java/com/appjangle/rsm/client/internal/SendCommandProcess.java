@@ -23,6 +23,8 @@ import com.appjangle.rsm.client.internal.SubmitCommandProcess.CommandSubmittedCa
 
 public class SendCommandProcess {
 
+    private static final boolean ENABLE_LOG = false;
+
     final ComponentOperation operation;
     final ClientConfiguration conf;
     final Session session;
@@ -55,6 +57,9 @@ public class SendCommandProcess {
 
     private void step1_create_response_node(final Link responsesLink,
             final LinkList responses) {
+        if (ENABLE_LOG) {
+            System.out.println(this + ": Step 0: Create Response Node");
+        }
         new CreateResponsesNodeProcess().createResponsesNode(responsesLink,
                 responses, new ResponsesNodeCallback() {
 
@@ -72,6 +77,9 @@ public class SendCommandProcess {
 
     private void step2_submit_command(final Link responsesLink,
             final Node response) {
+        if (ENABLE_LOG) {
+            System.out.println(this + ": Step 1: Submit Command");
+        }
         new SubmitCommandProcess(operation, conf, session).submitCommand(
                 response, new CommandSubmittedCallback() {
 
@@ -90,6 +98,9 @@ public class SendCommandProcess {
 
     private void step3_install_monitor(final Link responsesLink,
             final Node response) {
+        if (ENABLE_LOG) {
+            System.out.println(this + ": Step 3: Install Monitor");
+        }
         new InstallMonitorProcess().installMonitor(responsesLink, response,
                 new MonitorInstalledCallback() {
 
@@ -112,6 +123,9 @@ public class SendCommandProcess {
     private void step4_check_for_valid_responses(final Link responsesLink,
             final Node response, final MonitorContext ctx,
             final AtomicBoolean responseReceived) {
+        if (ENABLE_LOG) {
+            System.out.println(this + ": Step 4: Seek Responses");
+        }
         new SeekResponsesProcess().checkForResponses(session, ctx.node(),
                 new ResponseReceived() {
 
@@ -119,38 +133,7 @@ public class SendCommandProcess {
                     public void onSuccessReceived(
                             final SuccessResponse successResponse) {
                         responseReceived.set(true);
-                        new StopMonitorProcess().stop(ctx,
-                                new StopMonitorCallback() {
-
-                                    @Override
-                                    public void onSuccess() {
-                                        new ClearResponseNodeProcess()
-                                                .clearResponse(
-                                                        responsesLink,
-                                                        response,
-                                                        new ResponseNodeCleared() {
-
-                                                            @Override
-                                                            public void onSuccess() {
-                                                                callback.onSuccess();
-
-                                                            }
-
-                                                            @Override
-                                                            public void onFailure(
-                                                                    final Throwable t) {
-                                                                callback.onFailure(t);
-                                                            }
-
-                                                        });
-
-                                    }
-
-                                    @Override
-                                    public void onFailure(final Throwable t) {
-                                        callback.onFailure(t);
-                                    }
-                                });
+                        step5_stop_monitor(responsesLink, response, ctx);
 
                     }
 
@@ -190,6 +173,48 @@ public class SendCommandProcess {
                                         callback.onFailure(t);
                                     }
                                 });
+                    }
+
+                });
+    }
+
+    private void step5_stop_monitor(final Link responsesLink,
+            final Node response, final MonitorContext ctx) {
+        if (ENABLE_LOG) {
+            System.out.println(this + ": Step 5: Stop Monitor");
+        }
+        new StopMonitorProcess().stop(ctx, new StopMonitorCallback() {
+
+            @Override
+            public void onSuccess() {
+                step6_clear_response(responsesLink, response);
+
+            }
+
+            @Override
+            public void onFailure(final Throwable t) {
+                callback.onFailure(t);
+            }
+        });
+    }
+
+    private void step6_clear_response(final Link responsesLink,
+            final Node response) {
+        if (ENABLE_LOG) {
+            System.out.println(this + ": Step 6: Clear Responses");
+        }
+        new ClearResponseNodeProcess().clearResponse(responsesLink, response,
+                new ResponseNodeCleared() {
+
+                    @Override
+                    public void onSuccess() {
+                        callback.onSuccess();
+
+                    }
+
+                    @Override
+                    public void onFailure(final Throwable t) {
+                        callback.onFailure(t);
                     }
 
                 });

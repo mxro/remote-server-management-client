@@ -50,7 +50,7 @@ public class ClearResponseNodeProcess {
 
                     @Override
                     public void apply(final LinkList o) {
-                        System.out.println("START CLEAR");
+
                         final CallbackLatch latch = new CallbackLatch(
                                 o.size() + 1) {
 
