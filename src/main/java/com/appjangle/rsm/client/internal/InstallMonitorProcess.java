@@ -10,6 +10,7 @@ import io.nextweb.fn.ExceptionListener;
 import io.nextweb.fn.ExceptionResult;
 import io.nextweb.fn.Result;
 import io.nextweb.fn.Success;
+import io.nextweb.operations.callbacks.NodeListener;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -30,16 +31,13 @@ public class InstallMonitorProcess {
         final AtomicBoolean responseReceived = new AtomicBoolean(false);
 
         // monitor node for response from server
-        final Result<Monitor> monitor = response.monitor(Interval.FAST,
-                new Closure<MonitorContext>() {
+        final Result<Monitor> monitor = response.monitor()
+                .setInterval(Interval.FAST).addListener(new NodeListener() {
 
                     @Override
-                    public void apply(final MonitorContext ctx) {
-
+                    public void onWhenNodeChanged(final MonitorContext ctx) {
                         callback.onChangeDetected(ctx, responseReceived);
-
                     }
-
                 });
 
         monitor.catchExceptions(new ExceptionListener() {
