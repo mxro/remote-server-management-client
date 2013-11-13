@@ -2,10 +2,9 @@ package com.appjangle.rsm.client.internal;
 
 import io.nextweb.common.MonitorContext;
 import io.nextweb.fn.Closure;
-import io.nextweb.fn.ExceptionListener;
-import io.nextweb.fn.ExceptionResult;
 import io.nextweb.fn.Result;
 import io.nextweb.fn.Success;
+import io.nextweb.fn.exceptions.ExceptionResult;
 
 public class StopMonitorProcess {
 

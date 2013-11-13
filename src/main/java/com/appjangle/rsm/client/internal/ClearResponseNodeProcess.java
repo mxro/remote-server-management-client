@@ -6,10 +6,9 @@ import io.nextweb.LinkListQuery;
 import io.nextweb.Node;
 import io.nextweb.Query;
 import io.nextweb.fn.Closure;
-import io.nextweb.fn.ExceptionListener;
-import io.nextweb.fn.ExceptionResult;
 import io.nextweb.fn.Result;
 import io.nextweb.fn.Success;
+import io.nextweb.fn.exceptions.ExceptionResult;
 import one.async.joiner.CallbackLatch;
 
 public class ClearResponseNodeProcess {

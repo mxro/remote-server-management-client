@@ -6,8 +6,8 @@ import io.nextweb.Node;
 import io.nextweb.Query;
 import io.nextweb.fn.Closure;
 import io.nextweb.fn.Success;
-import io.nextweb.operations.exceptions.ImpossibleListener;
-import io.nextweb.operations.exceptions.ImpossibleResult;
+import io.nextweb.fn.exceptions.ImpossibleListener;
+import io.nextweb.fn.exceptions.ImpossibleResult;
 
 import java.util.Random;
 
